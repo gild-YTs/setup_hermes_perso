@@ -7,7 +7,7 @@ avec deux cartes réseau : une NAT (Internet) et une host-only (labo).
 podman-compose up -d --build     # ou : docker compose up -d --build
 ```
 
-Au premier lancement, un conteneur jetable (`ollama-pull`) télécharge le modèle (~5 Go) puis s'arrête ; Ollama lui-même n'a jamais accès à Internet :
+Au premier lancement, un conteneur jetable (`ollama-pull`) télécharge le modèle (~2 Go) puis s'arrête ; Ollama lui-même n'a jamais accès à Internet :
 `podman logs -f ollama-pull` pour suivre la progression.
 
 Autre modèle : `OLLAMA_MODEL=llama3.1:8b podman-compose up -d --build`
