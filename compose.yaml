@@ -1,0 +1,74 @@
+# Lancement : podman-compose up -d --build   (ou : docker compose up -d --build)
+# Modèle différent : OLLAMA_MODEL=llama3.1:8b podman-compose up -d --build
+
+services:
+  # --- LE CERVEAU : totalement isolé (réseau interne, aucune route vers Internet) ---
+  ollama:
+    image: docker.io/ollama/ollama:latest
+    container_name: ollama-brain
+    restart: unless-stopped
+    volumes:
+      - ollama_data:/root/.ollama:z     # ":z" (minuscule) car le volume est partagé avec ollama-pull
+    networks:
+      - ollama-isolated
+
+  # --- TÉLÉCHARGEMENT DU MODÈLE : a Internet, télécharge dans le volume, puis s'arrête ---
+  ollama-pull:
+    image: docker.io/ollama/ollama:latest
+    container_name: ollama-pull
+    restart: "no"
+    volumes:
+      - ollama_data:/root/.ollama:z
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        ollama serve >/dev/null 2>&1 &
+        until ollama list >/dev/null 2>&1; do sleep 2; done
+        ollama list | grep -qF "${OLLAMA_MODEL:-qwen2.5:7b}" || ollama pull ${OLLAMA_MODEL:-qwen2.5:7b}
+        echo "Modèle prêt."
+    # Réseau par défaut (avec Internet). Ce conteneur s'arrête tout seul à la fin.
+
+  # --- RELAIS : transmet uniquement le port 11434 de la VM vers Ollama ---
+  ollama-gateway:
+    image: docker.io/alpine/socat:latest
+    container_name: ollama-gateway
+    restart: unless-stopped
+    command: TCP-LISTEN:11434,fork,reuseaddr TCP:ollama:11434
+    ports:
+      - "127.0.0.1:11434:11434"         # accessible uniquement depuis la VM
+    networks:
+      - ollama-isolated
+      - default
+    depends_on:
+      - ollama
+
+  # --- L'ORCHESTRATEUR (HERMES) ---
+  # network_mode: host = Hermes utilise directement les cartes réseau de la VM :
+  #   - carte NAT       -> Internet
+  #   - carte host-only -> ton labo
+  # C'est la VM qui choisit la bonne carte selon l'adresse visée.
+  hermes:
+    build:
+      context: .
+      args:
+        HERMES_REF: main          # remplace par un tag/commit stable
+    container_name: hermes-agent
+    restart: unless-stopped
+    network_mode: host
+    cap_add:
+      - NET_RAW                   # nécessaire pour nmap (scans SYN) et ping
+    environment:
+      - OLLAMA_BASE_URL=http://127.0.0.1:11434
+      - OLLAMA_MODEL=${OLLAMA_MODEL:-qwen2.5:7b}
+    volumes:
+      - hermes_data:/root/.hermes:Z
+    depends_on:
+      - ollama-gateway
+
+volumes:
+  ollama_data:
+  hermes_data:
+
+networks:
+  ollama-isolated:
+    internal: true                # aucune route vers l'extérieur
