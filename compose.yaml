@@ -9,6 +9,7 @@ services:
     restart: unless-stopped
     volumes:
       - ollama_data:/root/.ollama:z     # ":z" (minuscule) car le volume est partagé avec ollama-pull
+      - ./Modelfile:/Modelfile:ro 
     networks:
       - ollama-isolated
 
@@ -59,7 +60,7 @@ services:
       - NET_RAW                   # nécessaire pour nmap (scans SYN) et ping
     environment:
       - OLLAMA_BASE_URL=http://127.0.0.1:11434
-      - OLLAMA_MODEL=${OLLAMA_MODEL:-qwen2.5:3b}
+      - OLLAMA_MODEL=${OLLAMA_MODEL:-qwen2.5:7b-64k}
     volumes:
       - hermes_data:/root/.hermes:Z
     depends_on:

@@ -1,0 +1,3 @@
+# Modelfile pour étendre le contexte de Qwen 2.5 7B à 64k (requis par Hermes Agent)
+FROM qwen2.5:7b
+PARAMETER num_ctx 65536
