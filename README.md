@@ -29,4 +29,4 @@ Un `Modelfile` est déjà inclus à la racine de ce dépôt pour étendre automa
    
 2. Configurer Hermes pour utiliser ce modèle :
    ```bash
-podman exec -it hermes-agent hermes model
+   podman exec -it hermes-agent hermes model
