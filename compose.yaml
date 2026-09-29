@@ -72,3 +72,5 @@ volumes:
 networks:
   ollama-isolated:
     internal: true                # aucune route vers l'extérieur
+  default:
+    driver: bridge
