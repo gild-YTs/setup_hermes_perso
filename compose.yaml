@@ -1,5 +1,5 @@
-# Lancement : podman-compose up -d --build   (ou : docker compose up -d --build)
-# Modèle différent : OLLAMA_MODEL=llama3.1:8b podman-compose up -d --build
+# Lancement : podman-compose up -d --build    (ou : docker compose up -d --build)
+# Modèle par défaut : qwen2.5:3b-64k (léger et fluide sur CPU)
 
 services:
   # --- LE CERVEAU : totalement isolé (réseau interne, aucune route vers Internet) ---
@@ -8,26 +8,32 @@ services:
     container_name: ollama-brain
     restart: unless-stopped
     volumes:
-      - ollama_data:/root/.ollama:z     # ":z" (minuscule) car le volume est partagé avec ollama-pull
-      - ./Modelfile:/Modelfile:ro 
+      - ollama_data:/root/.ollama:z      # ":z" (minuscule) car le volume est partagé avec ollama-pull
+      - ./Modelfile:/Modelfile:ro
     networks:
       - ollama-isolated
 
-  # --- TÉLÉCHARGEMENT DU MODÈLE : a Internet, télécharge dans le volume, puis s'arrête ---
+  # --- TÉLÉCHARGEMENT & CRÉATION AUTOMATIQUE DU MODÈLE ---
   ollama-pull:
     image: docker.io/ollama/ollama:latest
     container_name: ollama-pull
     restart: "no"
     volumes:
       - ollama_data:/root/.ollama:z
+      - ./Modelfile:/Modelfile:ro
     entrypoint: ["/bin/sh", "-c"]
     command:
       - |
         ollama serve >/dev/null 2>&1 &
         until ollama list >/dev/null 2>&1; do sleep 2; done
-        ollama list | grep -qF "${OLLAMA_MODEL:-qwen2.5:7b}" || ollama pull ${OLLAMA_MODEL:-qwen2.5:7b}
-        echo "Modèle prêt."
-    # Réseau par défaut (avec Internet). Ce conteneur s'arrête tout seul à la fin.
+        
+        # 1. Télécharge la base 3B si elle n'est pas présente
+        ollama list | grep -qF "qwen2.5:3b" || ollama pull qwen2.5:3b
+        
+        # 2. Crée automatiquement le modèle personnalisé -64k basé sur le Modelfile
+        ollama create qwen2.5:3b-64k -f /Modelfile
+        
+        echo "Modèle 3B-64k prêt."
 
   # --- RELAIS : transmet uniquement le port 11434 de la VM vers Ollama ---
   ollama-gateway:
@@ -36,7 +42,7 @@ services:
     restart: unless-stopped
     command: TCP-LISTEN:11434,fork,reuseaddr TCP:ollama:11434
     ports:
-      - "127.0.0.1:11434:11434"         # accessible uniquement depuis la VM
+      - "127.0.0.1:11434:11434"          # accessible uniquement depuis la VM
     networks:
       - ollama-isolated
       - default
@@ -44,23 +50,19 @@ services:
       - ollama
 
   # --- L'ORCHESTRATEUR (HERMES) ---
-  # network_mode: host = Hermes utilise directement les cartes réseau de la VM :
-  #   - carte NAT       -> Internet
-  #   - carte host-only -> ton labo
-  # C'est la VM qui choisit la bonne carte selon l'adresse visée.
   hermes:
     build:
       context: .
       args:
-        HERMES_REF: main          # remplace par un tag/commit stable
+        HERMES_REF: main
     container_name: hermes-agent
     restart: unless-stopped
     network_mode: host
     cap_add:
-      - NET_RAW                   # nécessaire pour nmap (scans SYN) et ping
+      - NET_RAW
     environment:
       - OLLAMA_BASE_URL=http://127.0.0.1:11434
-      - OLLAMA_MODEL=${OLLAMA_MODEL:-qwen2.5:7b-64k}
+      - OLLAMA_MODEL=qwen2.5:3b-64k
     volumes:
       - hermes_data:/root/.hermes:Z
     depends_on:
@@ -72,6 +74,6 @@ volumes:
 
 networks:
   ollama-isolated:
-    internal: true                # aucune route vers l'extérieur
+    internal: true                    # aucune route vers l'extérieur
   default:
     driver: bridge
