@@ -15,7 +15,7 @@ Autre modèle : `OLLAMA_MODEL=llama3.1:8b podman-compose up -d --build`
 Hermes utilise directement le réseau de la VM (Internet + labo).
 Arrêter : `podman-compose down` (ajouter `-v` pour supprimer aussi les données).
 
-## ⚠️ Dépannage & Gestion du Contexte Modèle (Qwen 2.5 7B)
+## ⚠️ Dépannage & Gestion du Contexte Modèle (Qwen 2.5 7B) EXEMPLE
 
 Hermes Agent impose une fenêtre de contexte minimale de **64 000 tokens**. Par défaut, le modèle `qwen2.5:7b` standard d'Ollama est configuré à 32k, ce qui déclenchera une erreur au démarrage de l'agent.
 
