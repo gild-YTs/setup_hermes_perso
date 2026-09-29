@@ -27,5 +27,6 @@ Un `Modelfile` est déjà inclus à la racine de ce dépôt pour étendre automa
    ```bash
    podman exec -it ollama-brain ollama create qwen2.5:7b-64k -f /Modelfile
    
-2 Configurer Hermes pour utiliser ce modèle :
-   podman exec -it hermes-agent hermes model
+2. Configurer Hermes pour utiliser ce modèle :
+   ```bash
+podman exec -it hermes-agent hermes model
